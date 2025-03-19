@@ -1,4 +1,13 @@
-// Connect to the Socket.IO server
+// Listen for premise generation status
+socket.on('premiseGenerating', (isGenerating) => {
+  if (isGenerating) {
+    feed.innerHTML = '<div class="generating-message">AI is crafting an intriguing story premise...</div>';
+    progressCount.textContent = '0';
+    turnIndicator.textContent = 'Waiting for premise...';
+    input.disabled = true;
+    submitBtn.disabled = true;
+  }
+});// Connect to the Socket.IO server
 const socket = io();
 
 // Get DOM elements
