@@ -12,31 +12,17 @@ const videoOutput = document.getElementById('video-output');
 const loadingIndicator = document.getElementById('loading-indicator');
 
 // Store game state
-let players = [];
+let players = ['Player 1', 'Player 2', 'Grok']; // Default players
 let currentTurn = 0;
-let storyLength = 0;
-
-// Fallback premise system
-let premiseGenerationTimeout;
-const fallbackPremises = [
-  "The adventure began with an unexpected discovery.",
-  "No one believed her when she said she could see the future.",
-  "The old mansion had secrets hidden within its walls.",
-  "The storm brought more than just rain to our small town.",
-  "When the lights flickered, we knew something had changed.",
-  "The mysterious package arrived without a return address.",
-  "What started as an ordinary day quickly turned extraordinary.",
-  "The ancient book contained a warning that couldn't be ignored.",
-  "Sometimes the most important journeys begin with a single mistake.",
-  "The countdown began, and we had no idea what would happen at zero."
-];
 
 // Listen for initial game state
 socket.on('init', ({ story, players: playersList, currentTurn: turnIndex }) => {
-  // Clear any pending fallback timeout
-  clearTimeout(premiseGenerationTimeout);
+  console.log('Received init event with story:', story);
   
-  players = playersList;
+  // Update state
+  if (playersList && playersList.length > 0) {
+    players = playersList;
+  }
   currentTurn = turnIndex;
   
   // Update UI with the initial story state
@@ -66,6 +52,8 @@ socket.on('init', ({ story, players: playersList, currentTurn: turnIndex }) => {
 
 // Listen for story updates
 socket.on('update', ({ story, currentTurn: turnIndex }) => {
+  console.log('Received update event with story length:', story.length);
+  
   currentTurn = turnIndex;
   
   // Update UI
@@ -87,50 +75,21 @@ socket.on('update', ({ story, currentTurn: turnIndex }) => {
   }
 });
 
-// Listen for premise generation status
-socket.on('premiseGenerating', (isGenerating) => {
-  if (isGenerating) {
-    feed.innerHTML = '<div class="generating-message">AI is crafting an intriguing story premise...</div>';
-    progressCount.textContent = '0';
-    turnIndicator.textContent = 'Waiting for premise...';
-    input.disabled = true;
-    submitBtn.disabled = true;
-    
-    // Set a timeout for premise generation
-    clearTimeout(premiseGenerationTimeout);
-    premiseGenerationTimeout = setTimeout(() => {
-      console.log('Client-side fallback: Premise generation timed out');
-      
-      // Select a random fallback premise
-      const randomIndex = Math.floor(Math.random() * fallbackPremises.length);
-      const fallbackPremise = fallbackPremises[randomIndex];
-      
-      // Create a fallback story with the premise
-      const fallbackStory = [{ player: 'Host', text: fallbackPremise }];
-      
-      // Update UI with the fallback premise
-      updateStory(fallbackStory);
-      updateTurn(players[0]);
-      progressCount.textContent = '1';
-      
-      // Enable input
-      input.disabled = false;
-      submitBtn.disabled = false;
-    }, 8000); // 8 second timeout
-  } else {
-    clearTimeout(premiseGenerationTimeout);
-  }
-});
-
 // Listen for Grok thinking status
 socket.on('grokThinking', (isThinking) => {
+  console.log('Grok thinking status:', isThinking);
+  
   if (isThinking) {
     turnIndicator.innerHTML = `<span class="ai-turn">Grok is thinking...</span>`;
+    input.disabled = true;
+    submitBtn.disabled = true;
   }
 });
 
 // Listen for story completion
 socket.on('storyComplete', (isComplete) => {
+  console.log('Story complete event:', isComplete);
+  
   if (isComplete) {
     videoBtn.disabled = false;
     submitBtn.disabled = true;
@@ -139,20 +98,35 @@ socket.on('storyComplete', (isComplete) => {
   }
 });
 
+// Listen for video generation status
+socket.on('videoGenerating', (isGenerating) => {
+  if (isGenerating) {
+    loadingIndicator.classList.remove('hidden');
+    videoBtn.disabled = true;
+  } else {
+    loadingIndicator.classList.add('hidden');
+    videoBtn.disabled = false;
+  }
+});
+
 // Listen for video generation result
 socket.on('videoReady', (url) => {
+  console.log('Video ready:', url);
   loadingIndicator.classList.add('hidden');
-  videoOutput.innerHTML = `<video src="${url}" controls autoplay></video>`;
+  videoOutput.innerHTML = `<p>Video would appear here (currently using placeholder)</p>`;
 });
 
 // Listen for error messages
 socket.on('error', (message) => {
+  console.error('Error from server:', message);
   alert(message);
 });
 
 // Update the story feed display
 function updateStory(story) {
-  if (story.length === 0) {
+  console.log('Updating story display with story of length:', story.length);
+  
+  if (!story || story.length === 0) {
     feed.innerHTML = '<div class="generating-message">Waiting for story to begin...</div>';
     return;
   }
@@ -177,14 +151,26 @@ function updateStory(story) {
 
 // Update the turn indicator
 function updateTurn(player) {
-  turnIndicator.textContent = `Next: ${player}`;
+  console.log('Updating turn to:', player);
+  
+  if (player === 'Grok') {
+    turnIndicator.innerHTML = `Next: <span class="player-name">Grok</span>`;
+  } else {
+    turnIndicator.textContent = `Next: ${player}`;
+  }
 }
 
 // Submit a new sentence to the story
 function submitSentence() {
   const sentence = input.value.trim();
+  console.log('Submitting sentence:', sentence);
   
   if (sentence) {
+    // Temporarily disable input until server responds
+    input.disabled = true;
+    submitBtn.disabled = true;
+    
+    // Send the sentence to the server
     socket.emit('addSentence', sentence);
   } else {
     alert('Please enter a sentence');
@@ -193,6 +179,8 @@ function submitSentence() {
 
 // Generate a video from the completed story
 function generateVideo() {
+  console.log('Requesting video generation');
+  
   // Show loading indicator
   loadingIndicator.classList.remove('hidden');
   videoOutput.innerHTML = '';
@@ -208,17 +196,17 @@ input.addEventListener('keypress', (event) => {
   }
 });
 
-// Add initial story fallback (in case server doesn't send an initial premise)
+// Add emergency fallback if socket connection fails
 setTimeout(() => {
-  // Check if there's already content in the story feed
-  if (feed.innerHTML.includes('Waiting for story to begin') || feed.innerHTML === '') {
-    console.log('Emergency fallback: No story received from server');
+  if (feed.innerHTML === '' || feed.innerHTML.includes('Waiting for story to begin')) {
+    console.log('Emergency fallback: Connection may have failed');
     
-    // Create an emergency fallback premise
-    const fallbackPremise = "In a world where stories write themselves, our tale begins.";
-    const fallbackStory = [{ player: 'Host', text: fallbackPremise }];
+    // Create a fallback story
+    const fallbackStory = [
+      { player: 'Host', text: 'The adventure began with an unexpected discovery.' }
+    ];
     
-    // Update UI with the fallback premise
+    // Update UI
     updateStory(fallbackStory);
     updateTurn('Player 1');
     progressCount.textContent = '1';
@@ -226,5 +214,11 @@ setTimeout(() => {
     // Enable input
     input.disabled = false;
     submitBtn.disabled = false;
+    
+    // Show connection error
+    alert('There seems to be an issue connecting to the server. Some features may not work properly.');
   }
-}, 15000); // 15 second ultimate fallback
+}, 5000);
+
+// Log that the script has loaded
+console.log('StoryWeave client script loaded');
