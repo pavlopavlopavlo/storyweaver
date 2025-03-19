@@ -98,11 +98,24 @@ socket.on('error', (message) => {
 
 // Update the story feed display
 function updateStory(story) {
-  feed.innerHTML = story.map(s => 
-    `<div class="sentence">
-      <span class="player-name">${s.player}:</span> ${s.text}
-    </div>`
-  ).join('');
+  if (story.length === 0) {
+    feed.innerHTML = '<div class="generating-message">Waiting for story to begin...</div>';
+    return;
+  }
+  
+  let html = '';
+  
+  // Add special styling to the premise (first entry)
+  html += `<div class="premise">${story[0].text}</div>`;
+  
+  // Add the rest of the story
+  for (let i = 1; i < story.length; i++) {
+    html += `<div class="sentence">
+      <span class="player-name">${story[i].player}:</span> ${story[i].text}
+    </div>`;
+  }
+  
+  feed.innerHTML = html;
   
   // Auto-scroll to the latest sentence
   feed.scrollTop = feed.scrollHeight;
