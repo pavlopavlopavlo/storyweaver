@@ -1,4 +1,59 @@
-const express = require('express');
+// Function to generate a story premise using AI
+async function generateStoryPremise() {
+  try {
+    // Select a random prompt source for inspiration
+    const randomSource = promptSources[Math.floor(Math.random() * promptSources.length)];
+    
+    // If you're using OpenAI's API
+    const apiKey = process.env.OPENAI_API_KEY || 'your-api-key';
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "You are a creative storyteller. Create an intriguing first sentence (max 100 characters) to start a collaborative story. It should be evocative, specific, and open-ended."
+          },
+          {
+            role: "user",
+            content: `Generate a captivating story opening sentence inspired by ${randomSource}. It should be intriguing and under 100 characters.`
+          }
+        ],
+        max_tokens: 50,
+        temperature: 0.9
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        }
+      }
+    );
+
+    let premise = response.data.choices[0].message.content.trim();
+    
+    // Ensure it's under 100 characters
+    if (premise.length > 100) {
+      premise = premise.substring(0, 97) + '...';
+    }
+    
+    // Remove quotes if the AI added them
+    premise = premise.replace(/^["'](.*)["']$/, '$1');
+    
+    return premise;
+  } catch (error) {
+    console.error('Error generating premise:', error);
+    // Fallback premises in case the API fails
+    const fallbackPremises = [
+      "The forest whispered secrets as night fell.",
+      "A strange door appeared in the middle of the sidewalk.",
+      "The old lighthouse keeper saw something impossible on the horizon.",
+      "Time stopped for everyone except the three of us."
+    ];
+    return fallbackPremises[Math.floor(Math.random() * fallbackPremises.length)];
+  }
+}const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const axios = require('axios');
@@ -10,10 +65,24 @@ const io = new Server(server);
 
 app.use(express.static('public')); // Serve front-end files
 
-// Initialize story with a premise
-let story = [{ player: 'Host', text: 'The forest whispered secrets as night fell.' }]; 
+// Initialize story
+let story = []; 
 let players = ['Player 1', 'Player 2', 'Grok']; // Preset players
 let currentTurn = 0;
+
+// Array of prompt inspiration sources - used to direct the AI
+const promptSources = [
+  "trending news",
+  "popular tweet",
+  "viral social media post",
+  "recent meme",
+  "interesting fact",
+  "historical event",
+  "science discovery",
+  "creative fiction",
+  "philosophical question",
+  "curious observation"
+];
 
 io.on('connection', (socket) => {
   console.log('User connected');
@@ -21,8 +90,23 @@ io.on('connection', (socket) => {
   // Assign a temporary player name based on socket ID
   const playerName = `Guest-${socket.id.substring(0, 5)}`;
   
-  // Send initial state to the new connection
-  socket.emit('init', { story, players, currentTurn });
+  // If story is empty, generate an AI premise
+  if (story.length === 0) {
+    // First send a temporary message to all clients
+    io.emit('premiseGenerating', true);
+    
+    // Generate the premise
+    generateStoryPremise().then(premise => {
+      story = [{ player: 'Host', text: premise }];
+      
+      // Send the initial state with the generated premise
+      io.emit('init', { story, players, currentTurn });
+      io.emit('premiseGenerating', false);
+    });
+  } else {
+    // Send existing story state to new connection
+    socket.emit('init', { story, players, currentTurn });
+  }
 
   // Handle when a player submits a new sentence
   socket.on('addSentence', async (sentence) => {
