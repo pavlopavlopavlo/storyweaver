@@ -1,13 +1,4 @@
-// Listen for premise generation status
-socket.on('premiseGenerating', (isGenerating) => {
-  if (isGenerating) {
-    feed.innerHTML = '<div class="generating-message">AI is crafting an intriguing story premise...</div>';
-    progressCount.textContent = '0';
-    turnIndicator.textContent = 'Waiting for premise...';
-    input.disabled = true;
-    submitBtn.disabled = true;
-  }
-});// Connect to the Socket.IO server
+// Connect to the Socket.IO server
 const socket = io();
 
 // Get DOM elements
@@ -25,8 +16,26 @@ let players = [];
 let currentTurn = 0;
 let storyLength = 0;
 
+// Fallback premise system
+let premiseGenerationTimeout;
+const fallbackPremises = [
+  "The adventure began with an unexpected discovery.",
+  "No one believed her when she said she could see the future.",
+  "The old mansion had secrets hidden within its walls.",
+  "The storm brought more than just rain to our small town.",
+  "When the lights flickered, we knew something had changed.",
+  "The mysterious package arrived without a return address.",
+  "What started as an ordinary day quickly turned extraordinary.",
+  "The ancient book contained a warning that couldn't be ignored.",
+  "Sometimes the most important journeys begin with a single mistake.",
+  "The countdown began, and we had no idea what would happen at zero."
+];
+
 // Listen for initial game state
 socket.on('init', ({ story, players: playersList, currentTurn: turnIndex }) => {
+  // Clear any pending fallback timeout
+  clearTimeout(premiseGenerationTimeout);
+  
   players = playersList;
   currentTurn = turnIndex;
   
@@ -42,6 +51,16 @@ socket.on('init', ({ story, players: playersList, currentTurn: turnIndex }) => {
     videoBtn.disabled = false;
     submitBtn.disabled = true;
     input.disabled = true;
+  } else {
+    // Enable/disable input based on whose turn it is
+    if (players[currentTurn] === 'Grok') {
+      input.disabled = true;
+      submitBtn.disabled = true;
+      turnIndicator.innerHTML = `Next: <span class="ai-turn">Grok (AI is thinking...)</span>`;
+    } else {
+      input.disabled = false;
+      submitBtn.disabled = false;
+    }
   }
 });
 
@@ -65,6 +84,41 @@ socket.on('update', ({ story, currentTurn: turnIndex }) => {
   } else {
     input.disabled = false;
     submitBtn.disabled = false;
+  }
+});
+
+// Listen for premise generation status
+socket.on('premiseGenerating', (isGenerating) => {
+  if (isGenerating) {
+    feed.innerHTML = '<div class="generating-message">AI is crafting an intriguing story premise...</div>';
+    progressCount.textContent = '0';
+    turnIndicator.textContent = 'Waiting for premise...';
+    input.disabled = true;
+    submitBtn.disabled = true;
+    
+    // Set a timeout for premise generation
+    clearTimeout(premiseGenerationTimeout);
+    premiseGenerationTimeout = setTimeout(() => {
+      console.log('Client-side fallback: Premise generation timed out');
+      
+      // Select a random fallback premise
+      const randomIndex = Math.floor(Math.random() * fallbackPremises.length);
+      const fallbackPremise = fallbackPremises[randomIndex];
+      
+      // Create a fallback story with the premise
+      const fallbackStory = [{ player: 'Host', text: fallbackPremise }];
+      
+      // Update UI with the fallback premise
+      updateStory(fallbackStory);
+      updateTurn(players[0]);
+      progressCount.textContent = '1';
+      
+      // Enable input
+      input.disabled = false;
+      submitBtn.disabled = false;
+    }, 8000); // 8 second timeout
+  } else {
+    clearTimeout(premiseGenerationTimeout);
   }
 });
 
@@ -152,58 +206,25 @@ input.addEventListener('keypress', (event) => {
   if (event.key === 'Enter') {
     submitSentence();
   }
+});
 
-  // Fallback premise system
-let premiseGenerationTimeout;
-const fallbackPremises = [
-  "The adventure began with an unexpected discovery.",
-  "No one believed her when she said she could see the future.",
-  "The old mansion had secrets hidden within its walls.",
-  "The storm brought more than just rain to our small town.",
-  "When the lights flickered, we knew something had changed."
-];
-
-// Add this to your existing socket.on('premiseGenerating') handler
-// or create it if it doesn't exist
-socket.on('premiseGenerating', (isGenerating) => {
-  if (isGenerating) {
-    feed.innerHTML = '<div class="generating-message">AI is crafting an intriguing story premise...</div>';
-    progressCount.textContent = '0';
-    turnIndicator.textContent = 'Waiting for premise...';
-    input.disabled = true;
-    submitBtn.disabled = true;
+// Add initial story fallback (in case server doesn't send an initial premise)
+setTimeout(() => {
+  // Check if there's already content in the story feed
+  if (feed.innerHTML.includes('Waiting for story to begin') || feed.innerHTML === '') {
+    console.log('Emergency fallback: No story received from server');
     
-    // Set a timeout for premise generation
-    clearTimeout(premiseGenerationTimeout);
-    premiseGenerationTimeout = setTimeout(() => {
-      console.log('Client-side fallback: Premise generation timed out');
-      // Select a random fallback premise
-      const randomIndex = Math.floor(Math.random() * fallbackPremises.length);
-      const fallbackPremise = fallbackPremises[randomIndex];
-      
-      // Create a fallback story with the premise
-      const fallbackStory = [{ player: 'Host', text: fallbackPremise }];
-      
-      // Update UI with the fallback premise
-      updateStory(fallbackStory);
-      updateTurn(players[0]);
-      progressCount.textContent = '1';
-      
-      // Enable input
-      input.disabled = false;
-      submitBtn.disabled = false;
-    }, 8000); // 8 second timeout
-  } else {
-    clearTimeout(premiseGenerationTimeout);
+    // Create an emergency fallback premise
+    const fallbackPremise = "In a world where stories write themselves, our tale begins.";
+    const fallbackStory = [{ player: 'Host', text: fallbackPremise }];
+    
+    // Update UI with the fallback premise
+    updateStory(fallbackStory);
+    updateTurn('Player 1');
+    progressCount.textContent = '1';
+    
+    // Enable input
+    input.disabled = false;
+    submitBtn.disabled = false;
   }
-});
-
-// Modify your existing socket.on('init') handler to clear the timeout
-// If you already have this event handler, just add the clearTimeout line inside it
-socket.on('init', (data) => {
-  // Your existing code...
-  
-  // Clear any pending fallback timeout
-  clearTimeout(premiseGenerationTimeout);
-});
-});
+}, 15000); // 15 second ultimate fallback
