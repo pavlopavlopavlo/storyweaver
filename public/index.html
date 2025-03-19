@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>StoryWeave - Collaborative Storytelling</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>StoryWeave</h1>
+      <p>Create a story together, one sentence at a time</p>
+    </header>
+    
+    <main>
+      <div id="story-container">
+        <h2>Your Story</h2>
+        <div id="story-feed"></div>
+      </div>
+      
+      <div id="turn-info">
+        <div id="turn-indicator">Next: Player 1</div>
+        <div id="story-progress">Story Progress: <span id="progress-count">1</span>/16</div>
+      </div>
+      
+      <div id="input-area">
+        <input id="sentence-input" type="text" placeholder="Add your sentence (max 100 characters)" maxlength="100">
+        <button id="submit-btn" onclick="submitSentence()">Submit</button>
+      </div>
+      
+      <div id="video-area">
+        <button id="video-btn" onclick="generateVideo()" disabled>Generate Video</button>
+        <div id="video-output"></div>
+        <div id="loading-indicator" class="hidden">Generating video...</div>
+      </div>
+    </main>
+    
+    <footer>
+      <p>StoryWeave - A Collaborative Storytelling Game</p>
+    </footer>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
