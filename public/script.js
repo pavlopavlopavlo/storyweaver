@@ -152,4 +152,58 @@ input.addEventListener('keypress', (event) => {
   if (event.key === 'Enter') {
     submitSentence();
   }
+
+  // Fallback premise system
+let premiseGenerationTimeout;
+const fallbackPremises = [
+  "The adventure began with an unexpected discovery.",
+  "No one believed her when she said she could see the future.",
+  "The old mansion had secrets hidden within its walls.",
+  "The storm brought more than just rain to our small town.",
+  "When the lights flickered, we knew something had changed."
+];
+
+// Add this to your existing socket.on('premiseGenerating') handler
+// or create it if it doesn't exist
+socket.on('premiseGenerating', (isGenerating) => {
+  if (isGenerating) {
+    feed.innerHTML = '<div class="generating-message">AI is crafting an intriguing story premise...</div>';
+    progressCount.textContent = '0';
+    turnIndicator.textContent = 'Waiting for premise...';
+    input.disabled = true;
+    submitBtn.disabled = true;
+    
+    // Set a timeout for premise generation
+    clearTimeout(premiseGenerationTimeout);
+    premiseGenerationTimeout = setTimeout(() => {
+      console.log('Client-side fallback: Premise generation timed out');
+      // Select a random fallback premise
+      const randomIndex = Math.floor(Math.random() * fallbackPremises.length);
+      const fallbackPremise = fallbackPremises[randomIndex];
+      
+      // Create a fallback story with the premise
+      const fallbackStory = [{ player: 'Host', text: fallbackPremise }];
+      
+      // Update UI with the fallback premise
+      updateStory(fallbackStory);
+      updateTurn(players[0]);
+      progressCount.textContent = '1';
+      
+      // Enable input
+      input.disabled = false;
+      submitBtn.disabled = false;
+    }, 8000); // 8 second timeout
+  } else {
+    clearTimeout(premiseGenerationTimeout);
+  }
+});
+
+// Modify your existing socket.on('init') handler to clear the timeout
+// If you already have this event handler, just add the clearTimeout line inside it
+socket.on('init', (data) => {
+  // Your existing code...
+  
+  // Clear any pending fallback timeout
+  clearTimeout(premiseGenerationTimeout);
+});
 });
