@@ -47,6 +47,23 @@ socket.on('update', ({ story, currentTurn: turnIndex }) => {
   
   // Clear input field after successful update
   input.value = '';
+  
+  // Enable/disable input based on whose turn it is
+  if (players[currentTurn] === 'Grok') {
+    input.disabled = true;
+    submitBtn.disabled = true;
+    turnIndicator.innerHTML = `Next: <span class="ai-turn">Grok (AI is thinking...)</span>`;
+  } else {
+    input.disabled = false;
+    submitBtn.disabled = false;
+  }
+});
+
+// Listen for Grok thinking status
+socket.on('grokThinking', (isThinking) => {
+  if (isThinking) {
+    turnIndicator.innerHTML = `<span class="ai-turn">Grok is thinking...</span>`;
+  }
 });
 
 // Listen for story completion
