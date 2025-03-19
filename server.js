@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const axios = require('axios');
+require('dotenv').config(); // For environment variables
 
 const app = express();
 const server = http.createServer(app);
@@ -24,7 +25,7 @@ io.on('connection', (socket) => {
   socket.emit('init', { story, players, currentTurn });
 
   // Handle when a player submits a new sentence
-  socket.on('addSentence', (sentence) => {
+  socket.on('addSentence', async (sentence) => {
     if (sentence.trim() && 
         sentence.length <= 100 && 
         story.length < 16 && // Limit to 15 turns + premise
@@ -36,6 +37,32 @@ io.on('connection', (socket) => {
       // Broadcast update to all connected clients
       io.emit('update', { story, currentTurn });
       
+      // If it's Grok's turn, generate an AI response
+      if (players[currentTurn] === 'Grok' && story.length < 16) {
+        // Let clients know Grok is thinking
+        io.emit('grokThinking', true);
+        
+        try {
+          // Get previous sentences to use as context
+          const previousSentences = story.map(s => s.text).join(' ');
+          
+          // Generate a response using an AI API
+          // This is a simplified example - in a real implementation, you would call an actual AI API
+          const grokResponse = await generateAIResponse(previousSentences);
+          
+          // Add Grok's response to the story
+          story.push({ player: 'Grok', text: grokResponse });
+          currentTurn = (currentTurn + 1) % players.length; // Move to next player's turn
+          
+          // Broadcast the update with Grok's contribution
+          io.emit('update', { story, currentTurn });
+          io.emit('grokThinking', false);
+        } catch (error) {
+          console.error('AI response generation failed:', error);
+          io.emit('grokThinking', false);
+        }
+      }
+      
       // Enable video generation after story is complete
       if (story.length >= 16) {
         io.emit('storyComplete', true);
@@ -45,7 +72,54 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle video generation request
+  // Function to generate AI response
+async function generateAIResponse(context) {
+  try {
+    // If you're using OpenAI's API
+    const apiKey = process.env.OPENAI_API_KEY || 'your-api-key';
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "You are Grok, a creative storyteller. Continue this collaborative story with a single sentence (max 100 characters) that builds on what came before. Be imaginative but appropriate."
+          },
+          {
+            role: "user",
+            content: `Here's the story so far: "${context}". Continue with a single sentence.`
+          }
+        ],
+        max_tokens: 50,
+        temperature: 0.8
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        }
+      }
+    );
+
+    let aiResponse = response.data.choices[0].message.content.trim();
+    
+    // Ensure it's just one sentence and under 100 characters
+    if (aiResponse.length > 100) {
+      aiResponse = aiResponse.substring(0, 97) + '...';
+    }
+    
+    // Remove quotes if the AI added them
+    aiResponse = aiResponse.replace(/^["'](.*)["']$/, '$1');
+    
+    return aiResponse;
+  } catch (error) {
+    console.error('Error generating AI response:', error);
+    return "The wind rustled through the leaves, carrying whispers of ancient secrets.";
+  }
+}
+
+// Handle video generation request
   socket.on('generateVideo', async () => {
     const storyText = story.map(s => s.text).join(' ');
     
