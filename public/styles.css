@@ -1,0 +1,179 @@
+/* Base styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
+              url('https://via.placeholder.com/1500x1000?text=Forest') no-repeat center center fixed;
+  background-size: cover;
+  color: #f0f0f0;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header styles */
+header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+}
+
+h1 {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  color: #4ecdc4;
+}
+
+/* Main content styles */
+main {
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+#story-container {
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin-bottom: 15px;
+  color: #4ecdc4;
+}
+
+#story-feed {
+  max-height: 300px;
+  overflow-y: auto;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.sentence {
+  margin: 10px 0;
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.player-name {
+  font-weight: bold;
+  color: #4ecdc4;
+}
+
+#turn-info {
+  display: flex;
+  justify-content: space-between;
+  margin: 15px 0;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+}
+
+#input-area {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+#sentence-input {
+  flex-grow: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 5px 0 0 5px;
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+#submit-btn {
+  padding: 12px 20px;
+  background-color: #4ecdc4;
+  color: #fff;
+  border: none;
+  border-radius: 0 5px 5px 0;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+#submit-btn:hover {
+  background-color: #39b3ab;
+}
+
+#video-area {
+  text-align: center;
+  margin-top: 20px;
+}
+
+#video-btn {
+  padding: 12px 24px;
+  background-color: #ff6b6b;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+#video-btn:hover:not(:disabled) {
+  background-color: #e55a5a;
+}
+
+#video-btn:disabled {
+  background-color: #8a8a8a;
+  cursor: not-allowed;
+}
+
+#video-output {
+  margin-top: 20px;
+}
+
+video {
+  max-width: 100%;
+  border-radius: 5px;
+}
+
+#loading-indicator {
+  margin-top: 15px;
+  font-style: italic;
+}
+
+.hidden {
+  display: none;
+}
+
+/* Footer styles */
+footer {
+  text-align: center;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+}
+
+/* Responsive styles */
+@media (max-width: 600px) {
+  #turn-info {
+    flex-direction: column;
+  }
+  
+  #input-area {
+    flex-direction: column;
+  }
+  
+  #sentence-input {
+    border-radius: 5px;
+    margin-bottom: 10px;
+  }
+  
+  #submit-btn {
+    border-radius: 5px;
+  }
+}
