@@ -109,11 +109,56 @@ socket.on('videoGenerating', (isGenerating) => {
   }
 });
 
-// Listen for video generation result
-socket.on('videoReady', (url) => {
-  console.log('Video ready:', url);
+// Modified videoReady event handler to integrate with archive system
+socket.on('videoReady', (url, svgAnimation) => {
+  console.log('Video ready:', url || 'SVG animation provided');
   loadingIndicator.classList.add('hidden');
-  videoOutput.innerHTML = `<p>Video would appear here (currently using placeholder)</p>`;
+  
+  // Display video or SVG animation
+  if (url) {
+    videoOutput.innerHTML = `
+      <video controls autoplay loop>
+        <source src="${url}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    `;
+  } else if (svgAnimation) {
+    videoOutput.innerHTML = svgAnimation;
+  } else {
+    videoOutput.innerHTML = `<p>Video generation failed. Please try again.</p>`;
+  }
+  
+  // Re-enable the video button
+  videoBtn.disabled = false;
+});
+
+// Listen for new story event from server
+socket.on('newStory', ({ story, currentTurn }) => {
+  console.log('Received newStory event with story length:', story.length);
+  
+  // Update UI
+  updateStory(story);
+  updateTurn(players[currentTurn]);
+  progressCount.textContent = story.length;
+  
+  // Clear input field
+  input.value = '';
+  
+  // Reset video output
+  videoOutput.innerHTML = '';
+  
+  // Disable video button until story is complete
+  videoBtn.disabled = true;
+  
+  // Enable/disable input based on whose turn it is
+  if (players[currentTurn] === 'Grok') {
+    input.disabled = true;
+    submitBtn.disabled = true;
+    turnIndicator.innerHTML = `Next: <span class="ai-turn">Grok (AI is thinking...)</span>`;
+  } else {
+    input.disabled = false;
+    submitBtn.disabled = false;
+  }
 });
 
 // Listen for error messages
