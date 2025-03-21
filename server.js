@@ -23,7 +23,7 @@ let currentTurn = 0;
 // Archive to store completed stories
 let storyArchive = [];
 
-// Array of fallback premises
+// Array of fallback premises for story initialization only (not for Grok responses)
 const fallbackPremises = [
   "The ancient map led us to a place that shouldn't exist.",
   "The letter arrived fifty years after it was sent.",
@@ -83,9 +83,10 @@ io.on('connection', (socket) => {
         } catch (error) {
           console.error('Grok response error:', error);
           
-          // Use a fallback response if AI fails
-          const fallbackResponse = "The plot thickened as our journey continued into the unknown.";
-          story.push({ player: 'Grok', text: fallbackResponse });
+          // This should never happen now with our robust fallback system,
+          // but just in case something catastrophic occurs
+          const dynamicResponse = generateDynamicFallbackResponse(story.map(s => s.text).join(' '));
+          story.push({ player: 'Grok', text: dynamicResponse });
           currentTurn = (currentTurn + 1) % players.length;
           
           io.emit('update', { story, currentTurn });
@@ -307,8 +308,9 @@ async function getGrokResponse() {
     const apiKey = process.env.OPENAI_API_KEY;
     
     if (!apiKey) {
-      console.warn('No OpenAI API key found, using fallback');
-      throw new Error('No API key');
+      console.warn('No OpenAI API key found, attempting fallback LLM');
+      // Try a secondary LLM API if available
+      return await getSecondaryLLMResponse(previousSentences);
     }
     
     console.log('Making request to OpenAI API');
@@ -354,19 +356,113 @@ async function getGrokResponse() {
     
     return aiResponse;
   } catch (error) {
-    console.error('Error getting AI response:', error.message);
+    console.error('Error getting primary AI response:', error.message);
     
-    // Generate a fallback response based on story context
-    const fallbackResponses = [
-      "The plot thickened as shadows danced across the ancient walls.",
-      "A whisper of wind carried secrets through the narrow streets.",
-      "The mysterious object glinted in the moonlight, revealing hidden symbols.",
-      "Something stirred in the darkness, watching our every move.",
-      "The clock struck midnight, and everything changed in an instant."
-    ];
-    
-    return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+    // Try a secondary LLM provider rather than using static fallbacks
+    try {
+      return await getSecondaryLLMResponse(previousSentences);
+    } catch (secondaryError) {
+      console.error('Error getting secondary AI response:', secondaryError.message);
+      
+      // As a last resort, we'll have to generate a dynamic response based on the story
+      // This is better than static fallbacks but still not ideal
+      return generateDynamicFallbackResponse(previousSentences);
+    }
   }
+}
+
+// Function to try a secondary LLM provider (could be Claude, Cohere, etc.)
+async function getSecondaryLLMResponse(storyContext) {
+  // Check if we have a secondary API key configured
+  const secondaryApiKey = process.env.SECONDARY_LLM_API_KEY;
+  
+  if (!secondaryApiKey) {
+    throw new Error('No secondary LLM API key configured');
+  }
+  
+  // Example using a different API (adjust based on which secondary provider you choose)
+  // This example uses Cohere's API
+  try {
+    const response = await axios.post(
+      'https://api.cohere.ai/v1/generate',
+      {
+        prompt: `Continue this collaborative story with a single sentence (max 100 characters): "${storyContext}"`,
+        max_tokens: 50,
+        temperature: 0.8,
+        stop_sequences: ["."]
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${secondaryApiKey}`
+        },
+        timeout: 10000
+      }
+    );
+    
+    let aiResponse = response.data.generations[0].text.trim();
+    
+    // Ensure it ends with a period if it doesn't already
+    if (!aiResponse.endsWith('.')) {
+      aiResponse += '.';
+    }
+    
+    // Ensure it's under 100 characters
+    if (aiResponse.length > 100) {
+      aiResponse = aiResponse.substring(0, 97) + '...';
+    }
+    
+    return aiResponse;
+  } catch (error) {
+    throw new Error(`Secondary LLM error: ${error.message}`);
+  }
+}
+
+// Function to generate a dynamic response based on the story context
+// This is only used as a last resort if all LLM APIs fail
+function generateDynamicFallbackResponse(storyContext) {
+  console.log('Using dynamic fallback response generation');
+  
+  // Extract keywords from the story
+  const words = storyContext.split(' ');
+  const significantWords = words.filter(word => 
+    word.length > 4 && 
+    !/^(the|and|but|for|from|with|this|that|these|those|when|where)$/i.test(word)
+  ).slice(-10); // Use the most recent significant words
+  
+  // Get 1-2 random keywords from the story
+  let keywords = [];
+  if (significantWords.length > 0) {
+    const index1 = Math.floor(Math.random() * significantWords.length);
+    keywords.push(significantWords[index1]);
+    
+    if (significantWords.length > 3) {
+      let index2 = Math.floor(Math.random() * significantWords.length);
+      while (index2 === index1) {
+        index2 = Math.floor(Math.random() * significantWords.length);
+      }
+      keywords.push(significantWords[index2]);
+    }
+  }
+  
+  // Generate a dynamic response using the keywords
+  const templates = [
+    "The {keyword1} revealed a hidden truth about the {keyword2}.",
+    "Suddenly, the {keyword1} transformed, leaving everyone amazed.",
+    "A mysterious {keyword1} appeared, changing their perspective on the {keyword2}.",
+    "The {keyword1} held secrets that would soon come to light.",
+    "Beyond the {keyword1}, something unexpected awaited them."
+  ];
+  
+  // Select a template
+  const template = templates[Math.floor(Math.random() * templates.length)];
+  
+  // Fill in the template with keywords or generic terms if we don't have keywords
+  let response = template
+    .replace('{keyword1}', keywords[0] || 'situation')
+    .replace('{keyword2}', keywords[1] || 'journey');
+  
+  return response;
 }
 
 // Function to generate a simple SVG animation as fallback for video
