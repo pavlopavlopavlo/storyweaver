@@ -1,6 +1,9 @@
 # API Keys
 OPENAI_API_KEY=your-openai-api-key-here
 
+#second API
+SECONDARY_LLM_API_KEY=your-secondary-llm-api-key
+
 # Video Generation
 VIDEO_GEN_API_KEY=your-video-api-key-here
 
