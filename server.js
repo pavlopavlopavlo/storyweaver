@@ -198,6 +198,22 @@ io.on('connection', (socket) => {
   socket.on('startNewStory', () => {
     console.log('Starting new story');
     
+    // Archive the old story if it exists and has sufficient content
+    if (story.length > 1) {
+      const storyToArchive = [...story]; // Make a copy
+      const archiveEntry = createArchiveEntry(storyToArchive);
+      
+      if (archiveEntry) {
+        // Add to archive
+        storyArchive.unshift(archiveEntry);
+        
+        // Keep archive limited to last 10 stories
+        if (storyArchive.length > 10) {
+          storyArchive = storyArchive.slice(0, 10);
+        }
+      }
+    }
+    
     // Generate a new premise
     const newPremise = getRandomPremise();
     
@@ -207,6 +223,9 @@ io.on('connection', (socket) => {
     
     // Broadcast the new story to all clients
     io.emit('newStory', { story, currentTurn });
+    
+    // Also send updated archive
+    io.emit('archiveUpdated', storyArchive);
   });
   
   // Handle a request to view the archive
@@ -214,6 +233,26 @@ io.on('connection', (socket) => {
     socket.emit('archiveData', storyArchive);
   });
 });
+
+// Function to create an archive entry
+function createArchiveEntry(storyContent) {
+  // Only archive if we have at least the premise and one contribution
+  if (!storyContent || storyContent.length < 2) return null;
+  
+  // Generate a simple SVG animation as fallback for video
+  const storyText = storyContent.map(s => s.text).join(' ');
+  const svgAnimation = generateSVGAnimation(storyText);
+  
+  const timestamp = new Date().toISOString();
+  return {
+    id: `story-${timestamp}`,
+    date: timestamp,
+    story: storyContent,
+    videoUrl: null,
+    svgAnimation: svgAnimation,
+    title: generateStoryTitle(storyText)
+  };
+}
 
 // Function to generate a title for the archived story
 function generateStoryTitle(storyText) {
