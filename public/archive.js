@@ -1,5 +1,4 @@
 // Video Archiver for StoryWeave
-// Add this file as public/archive.js
 
 class StoryArchive {
   constructor() {
